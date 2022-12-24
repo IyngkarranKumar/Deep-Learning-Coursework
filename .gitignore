@@ -1,0 +1,11 @@
+
+#datasets
+training
+test
+
+#Jupypter Notebook
+.ipynb_checkpoints
+
+#byte-compiled files
+__pycache__
+
