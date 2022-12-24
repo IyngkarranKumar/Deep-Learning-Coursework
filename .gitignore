@@ -9,3 +9,5 @@ test
 #byte-compiled files
 __pycache__
 
+#logs
+lightning_logs

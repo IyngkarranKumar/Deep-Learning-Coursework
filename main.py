@@ -65,7 +65,6 @@ latent_size=512
 
 if not load:
     model = models.Autoencoder(n_channels=n_channels,latent_size=latent_size)
-    model = models.VariationalAutoencoder()
 
 
 
@@ -113,7 +112,7 @@ if 1: #callbacks
         def on_train_end(self, trainer, pl_module):
             print("Training is done.")
 
-save=False
+save=True
 max_epochs=3
 callbacks = [SamplesCallback()] #custom code added to pl Trainer
 
