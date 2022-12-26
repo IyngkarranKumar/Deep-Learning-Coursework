@@ -10,7 +10,7 @@ from torchvision.utils import make_grid
 import utils; importlib.reload(utils)
 
 
-class Block(nn.Module):
+class Block(pl.LightningModule):
     #maps (in_f,2n,2n) -> (out_f,2n,2n)
     def __init__(self, in_f, out_f):
         super(Block, self).__init__()
@@ -25,12 +25,13 @@ class Block(nn.Module):
 
 class Autoencoder(pl.LightningModule):
     
-    def __init__(self,n_channels,latent_size, f=16):
+    def __init__(self,n_channels,latent_size, f=16,device=torch.device('cpu')):
         super().__init__()
 
         self.latent_size=latent_size
         self.n_channels=n_channels
         self.f=16
+        self.dev=device #reqd for tensors instantiated by model
 
         self.save_hyperparameters() #for checkpointing
 
@@ -84,6 +85,7 @@ class Autoencoder(pl.LightningModule):
 
         if method=='random':
             z=torch.rand(n_samples,self.latent_size)
+            z=z.to(self.dev)
             z=z[:,:,None,None]
 
         with torch.no_grad():
@@ -93,13 +95,14 @@ class Autoencoder(pl.LightningModule):
 
 class VariationalAutoencoder(pl.LightningModule):
 
-    def __init__(self,latent_size=512,in_f=3,img_dims=(32,32)):
+    def __init__(self,latent_size=512,in_f=3,img_dims=(32,32),device=torch.device('cpu')):
         super(VariationalAutoencoder,self).__init__()
 
 
         self.latent_size=latent_size
         self.in_f=in_f
         self.img_dims=img_dims
+        self.dev=device
         self.encoder_layers=int(np.log2(img_dims[0])) #sets encoder ASSUMING each layer halves img dims (2n,2n)->(n,n)
         self.dims=list(reversed([latent_size/(2**i) for i in range(self.encoder_layers)]))
         self.dims = np.array([in_f]+self.dims,dtype=int)
@@ -114,22 +117,21 @@ class VariationalAutoencoder(pl.LightningModule):
         self.N = torch.distributions.Normal(0,1)
 
     def encoder(self,x):
-        
         for dfrom,dto in zip(self.dims[:-1],self.dims[1:]):
-            x = Block(dfrom,dto)(x)
-            x = nn.MaxPool2d(kernel_size=(2,2))(x)
+            x = Block(dfrom,dto).to(self.dev)(x)
+            x = nn.MaxPool2d(kernel_size=(2,2)).to(self.dev)(x)
         x=x.squeeze()
         mu = self.mu(x)
         sigma=torch.exp(self.sigma(x))
-        z = mu + sigma*self.N.sample(mu.shape)
+        z = mu + sigma*(self.N.sample(mu.shape).type_as(mu))
 
         return mu,sigma,z
 
     def decoder(self,z):
         z = z[:,:,None,None]
         for dto,dfrom in zip(list(reversed(self.dims[:-1])),list(reversed(self.dims[1:]))):
-            z = nn.Upsample(scale_factor=2)(z)
-            z = Block(dfrom,dto)(z)
+            z = nn.Upsample(scale_factor=2).to(self.dev)(z)
+            z = Block(dfrom,dto).to(self.dev)(z)
         x_hat=z
         
         return x_hat
@@ -145,6 +147,7 @@ class VariationalAutoencoder(pl.LightningModule):
         mu,sigma,z=self.encoder(x)
         x_hat=self.decoder(z)
         loss = F.mse_loss(x,x_hat) + utils.KLDivLoss(mu,sigma)
+        self.log('train_loss',loss)
 
         return loss
 
@@ -158,7 +161,7 @@ class VariationalAutoencoder(pl.LightningModule):
         #sample from prior
 
         prior=torch.distributions.Normal(0,1)
-        z = prior.sample((n_samples,self.latent_size))
+        z = prior.sample((n_samples,self.latent_size)).to(self.dev)
         prior.sample()
 
         with torch.no_grad():
