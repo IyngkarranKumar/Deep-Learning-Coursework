@@ -31,3 +31,7 @@ def KLDivLoss(mu1,sigma1,mu2=0,sigma2=1):
   
   loss = (0.5*torch.log(sigma2/sigma1) + ((sigma1**2 + (mu1-mu2)**2) / (2*sigma2**2)) - 0.5).mean()
   return loss
+
+def FID():
+  #for calculation of FID score
+  pass
