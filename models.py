@@ -76,6 +76,7 @@ class Autoencoder(pl.LightningModule):
         self.log('train_loss',loss,logger=True,on_step=True,on_epoch=True)
         return loss
 
+
     def configure_optimizers(self):
         optimiser=torch.optim.Adam(self.parameters(),lr=0.01)
         scheduler=torch.optim.lr_scheduler.StepLR(optimiser,step_size=100,gamma=0.5)
@@ -150,7 +151,7 @@ class VariationalAutoencoder(pl.LightningModule):
         mu,sigma,z=self.encoder(x)
         x_hat=self.decoder(z)
         loss = F.mse_loss(x,x_hat) + utils.KLDivLoss(mu,sigma)
-        self.log('train_loss',loss,logger=True)
+        self.log('train_loss',loss,logger=True,on_epoch=True)
 
         return loss
 
@@ -159,14 +160,16 @@ class VariationalAutoencoder(pl.LightningModule):
         mu,sigma,z=self.encoder(x)
         x_hat=self.decoder(z)
         loss=F.mse_loss(x,x_hat) + utils.KLDivLoss(mu,sigma)
-        self.log('val_loss',loss,logger=True)
+        self.log('val_loss',loss,logger=True,on_epoch=True)
 
         return loss
         
 
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters())
+        optimiser=torch.optim.Adam(self.parameters(),lr=0.01)
+        scheduler=torch.optim.lr_scheduler.StepLR(optimiser,step_size=100,gamma=0.5)
+        return {'optimizer':optimiser,'lr_scheduler':scheduler}
 
     def on_train_batch_end(self, outputs,batch,batch_idx):
         return batch
