@@ -73,6 +73,7 @@ class Autoencoder(pl.LightningModule):
         x,y=batch
         z,x_hat=self(x)
         loss = torch.nn.functional.mse_loss(x,x_hat)
+        self.log('train_loss',loss,logger=True,on_step=True,on_epoch=True)
         return loss
 
     def configure_optimizers(self):
@@ -147,7 +148,7 @@ class VariationalAutoencoder(pl.LightningModule):
         mu,sigma,z=self.encoder(x)
         x_hat=self.decoder(z)
         loss = F.mse_loss(x,x_hat) + utils.KLDivLoss(mu,sigma)
-        self.log('train_loss',loss)
+        self.log('train_loss',loss,logger=True,on_step=True,on_epoch=True)
 
         return loss
 
