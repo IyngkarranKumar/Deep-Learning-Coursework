@@ -33,12 +33,8 @@ class CIFAR10Dataset(pl.LightningDataModule):
         self.cifar10_test = torchvision.datasets.CIFAR10(self.test_path,train=False,transform=transforms)
 
     def train_dataloader(self,num=None):
-        if num==None:
-            return DataLoader(self.cifar10_train,batch_size=self.batch_size)
-        else:
-            #custom sized dataset
-            trainset = torch.utils.data.Subset(self.cifar10_train,list(range(num)))
-            return DataLoader(trainset,batch_size=self.batch_size)
+        return DataLoader(self.cifar10_train,batch_size=self.batch_size)
+
 
     def test_dataloader(self):
         return DataLoader(self.cifar10_test,batch_size=self.batch_size)
