@@ -77,7 +77,9 @@ class Autoencoder(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters())
+        optimiser=torch.optim.Adam(self.parameters(),lr=0.01)
+        scheduler=torch.optim.lr_scheduler.StepLR(optimiser,step_size=100,gamma=0.5)
+        return {'optimizer':optimiser,'lr_scheduler':scheduler}
 
     def on_train_batch_end(self, outputs,batch,batch_idx):
         return batch
