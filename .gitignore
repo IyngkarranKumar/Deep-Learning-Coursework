@@ -9,5 +9,8 @@ test
 #byte-compiled files
 __pycache__
 
-#logs
+#logs and checkpoints
 lightning_logs
+tb_logs
+models
+

@@ -127,6 +127,8 @@ class VariationalAutoencoder(pl.LightningModule):
         self.decode=nn.Sequential(*self.decoder_layers)
         self.N = torch.distributions.Normal(0,1)
 
+        self.save_hyperparameters() #for checkpointing
+
     def encoder(self,x):
         x=self.encode(x).squeeze()
         mu = self.mu(x)
