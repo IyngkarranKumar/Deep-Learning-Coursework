@@ -114,17 +114,20 @@ class VariationalAutoencoder(pl.LightningModule):
         self.decoder_layers=[]
         self.mu = nn.Linear(latent_size,latent_size)
         self.sigma = nn.Linear(latent_size,latent_size)
-
-
-        self.encoder=nn.ModuleList(self.encoder_layers)
-        self.decoder=nn.ModuleList(self.decoder_layers)
+        self.encoder_layers=[]
+        self.decoder_layers=[]
+        for dfrom,dto in zip(list(self.dims[:-1]),list(self.dims[1:])):
+            self.encoder_layers.append(Block(dfrom,dto))
+            self.encoder_layers.append(nn.MaxPool2d(kernel_size=(2,2)))
+        for dto,dfrom in zip(list(reversed(self.dims[:-1])),list(reversed(self.dims[1:]))):
+            self.decoder_layers.append(nn.Upsample(scale_factor=2))
+            self.decoder_layers.append(Block(dfrom,dto))
+        self.encode=nn.Sequential(*self.encoder_layers)
+        self.decode=nn.Sequential(*self.decoder_layers)
         self.N = torch.distributions.Normal(0,1)
 
     def encoder(self,x):
-        for dfrom,dto in zip(self.dims[:-1],self.dims[1:]):
-            x = Block(dfrom,dto).to(self.dev)(x)
-            x = nn.MaxPool2d(kernel_size=(2,2)).to(self.dev)(x)
-        x=x.squeeze()
+        x=self.encode(x).squeeze()
         mu = self.mu(x)
         sigma=torch.exp(self.sigma(x))
         z = mu + sigma*(self.N.sample(mu.shape).type_as(mu))
@@ -133,10 +136,7 @@ class VariationalAutoencoder(pl.LightningModule):
 
     def decoder(self,z):
         z = z[:,:,None,None]
-        for dto,dfrom in zip(list(reversed(self.dims[:-1])),list(reversed(self.dims[1:]))):
-            z = nn.Upsample(scale_factor=2).to(self.dev)(z)
-            z = Block(dfrom,dto).to(self.dev)(z)
-        x_hat=z
+        x_hat=self.decode(z)
         
         return x_hat
 
