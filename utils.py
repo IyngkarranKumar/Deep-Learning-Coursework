@@ -1,6 +1,7 @@
 
 import torch
 import os
+import matplotlib.pyplot as plt
 
 
 def cycle(iterable):
@@ -42,6 +43,12 @@ def num_nans_infs(tens):
   print('Number nans/infs: {},{}'.format(num_nans,num_infs))
   
   return
+
+def imshow(tens):
+  plt.imshow(tens.permute(1,2,0))
+  ax=plt.gca()
+  return ax
+
 
 
 
