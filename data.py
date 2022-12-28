@@ -32,7 +32,7 @@ class CIFAR10Dataset(pl.LightningDataModule):
         if self.image_size is not None:
             transform_list.append(transforms.Resize(self.image_size))
 
-        transforms = transforms.Compose(transform_list)
+        transforms = torchvision.transforms.Compose(transform_list)
         
 
         cifar10_full = torchvision.datasets.CIFAR10(self.train_path,train=True,transform=transforms)
@@ -70,7 +70,7 @@ class STL10Dataset(pl.LightningDataModule):
         if self.image_size is not None:
             transform_list.append(transforms.Resize(self.image_size))
 
-        transforms = transforms.Compose(transform_list)
+        transforms = torchvision.transforms.Compose(transform_list)
         
 
         stl10_full = torchvision.datasets.STL10(self.train_path,train=True,transform=transforms)

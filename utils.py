@@ -2,6 +2,8 @@
 import torch
 import os
 import matplotlib.pyplot as plt
+import torchvision
+from torchmetrics.image.fid import FrechetInceptionDistance
 
 
 def cycle(iterable):
@@ -33,9 +35,18 @@ def KLDivLoss(mu1,sigma1,mu2=0,sigma2=1):
   loss = (0.5*torch.log(sigma2/sigma1) + ((sigma1**2 + (mu1-mu2)**2) / (2*sigma2**2)) - 0.5).mean()
   return loss
 
-def FID():
-  #for calculation of FID score
-  pass
+def FID(D_real,D_gen):
+  '''
+  Idea behind FID - two datasets, one real one fake. D_R, D_F.
+  Calculate activation statistics for D_R and D_F both passed into InceptionV3 Network.
+  Calculate difference in resulting distributions
+  '''
+
+  fid=FrechetInceptionDistance(normalize=True)
+  fid.update(D_real,real=True)
+  fid.update(D_gen,real=False)
+  fid_score=fid.compute()
+  return fid_score
 
 def num_nans_infs(tens):
   num_nans=len(torch.nonzero(torch.isnan(tens.view(-1))))
