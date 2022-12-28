@@ -150,8 +150,15 @@ class VariationalAutoencoder(pl.LightningModule):
         x,y=batch
         mu,sigma,z=self.encoder(x)
         x_hat=self.decoder(z)
-        loss = F.mse_loss(x,x_hat) + utils.KLDivLoss(mu,sigma)
+        loss = F.mse_loss(x,x_hat) + utils.KLDivLoss(mu,sigma);
         self.log('train_loss',loss,logger=True,on_epoch=True)
+
+        if torch.isnan(loss):
+          import sys
+          print(utils.num_nans_infs(mu))
+          print(mu.size())
+          #print(utils.num_nans_infs(x),utils.num_nans_infs(mu),utils.num_nans_infs(sigma),utils.num_nans_infs(z),utils.num_nans_infs(x_hat))
+          sys.exit()
 
         return loss
 
@@ -167,7 +174,7 @@ class VariationalAutoencoder(pl.LightningModule):
 
 
     def configure_optimizers(self):
-        optimiser=torch.optim.Adam(self.parameters(),lr=0.01)
+        optimiser=torch.optim.Adam(self.parameters(),lr=0.001)
         scheduler=torch.optim.lr_scheduler.StepLR(optimiser,step_size=100,gamma=0.5)
         return {'optimizer':optimiser,'lr_scheduler':scheduler}
 

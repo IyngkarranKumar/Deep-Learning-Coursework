@@ -35,3 +35,13 @@ def KLDivLoss(mu1,sigma1,mu2=0,sigma2=1):
 def FID():
   #for calculation of FID score
   pass
+
+def num_nans_infs(tens):
+  num_nans=len(torch.nonzero(torch.isnan(tens.view(-1))))
+  num_infs=len(torch.nonzero(torch.isinf(tens.view(-1))))
+  print('Number nans/infs: {},{}'.format(num_nans,num_infs))
+  
+  return
+
+
+
