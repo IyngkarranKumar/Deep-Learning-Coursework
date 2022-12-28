@@ -10,6 +10,7 @@ from torchvision.utils import make_grid
 import utils; importlib.reload(utils)
 
 
+
 class Block(pl.LightningModule):
     #maps (in_f,2n,2n) -> (out_f,2n,2n)
     def __init__(self, in_f, out_f):
@@ -153,13 +154,6 @@ class VariationalAutoencoder(pl.LightningModule):
         loss = F.mse_loss(x,x_hat) + utils.KLDivLoss(mu,sigma);
         self.log('train_loss',loss,logger=True,on_epoch=True)
 
-        if torch.isnan(loss):
-          import sys
-          print(utils.num_nans_infs(mu))
-          print(mu.size())
-          #print(utils.num_nans_infs(x),utils.num_nans_infs(mu),utils.num_nans_infs(sigma),utils.num_nans_infs(z),utils.num_nans_infs(x_hat))
-          sys.exit()
-
         return loss
 
     def validation_step(self,batch,batch_idx):
@@ -171,7 +165,6 @@ class VariationalAutoencoder(pl.LightningModule):
 
         return loss
         
-
 
     def configure_optimizers(self):
         optimiser=torch.optim.Adam(self.parameters(),lr=0.001)
