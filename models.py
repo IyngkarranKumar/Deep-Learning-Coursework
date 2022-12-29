@@ -24,6 +24,7 @@ class Block(pl.LightningModule):
     def forward(self,x):
         return self.f(x)
 
+
 class Autoencoder(pl.LightningModule):
     
     def __init__(self,n_channels,latent_size, f=16,device=torch.device('cpu')):
@@ -98,6 +99,64 @@ class Autoencoder(pl.LightningModule):
             
         return imgs
 
+class AbstractVariationalAutoencoder(pl.LightningModule):
+
+    def __init__(self,encoder,decoder,loss_func):
+        self.encoder=encoder
+        self.decoder=decoder
+
+        self.N=torch.distributions.Normal(0,1)
+    
+    def encode(self,x):
+        mu,log_var=self.encoder(x)
+        sigma=torch.exp(log_var)
+        z=mu+(sigma*self.N.sample(mu.shape))
+        return mu,sigma,z
+
+    def decode(self,z):
+        x_hat=self.decoder(z)
+        return x_hat
+
+    def loss(self,x,mu,sigma,z,x_hat):
+        return self.loss_func(x,mu,sigma,z,x_hat)
+
+    def forward(self,x):
+        mu,sigma,z=self.encode(x)
+        x_hat=self.decode(z)
+        return x_hat
+
+    def training_step(self,batch,batch_idx):
+        x,y=batch
+        mu,sigma,z=self.encoder(x)
+        x_hat=self.decoder(z)
+        Loss=self.loss(x,x_hat,z,mu,sigma)
+        return Loss
+
+    def configure_optimizers(self):
+        raise NotImplementedError
+
+    def sample(self,n_samples):
+        raise NotImplementedError
+
+
+
+    
+
+class VAE_one(AbstractVariationalAutoencoder):
+    
+    def __init__(self,encoder=Encoder1,decoder=Decoder1,loss=Loss1):
+        super(self,VAE).__init__(encoder=Encoder1,decoder=Decoder1,loss=Loss1)
+
+
+
+class VAE_two(AbstractVariationalAutoencoder):
+
+    def __init__(self,encoder=Encoder2,decoder=Decoder2,loss=Loss2):
+        super(self,VAE_two).__init__(encoder=Encoder2,decoder=Decoder2,loss=Loss2)
+
+
+
+#working VAE
 class VariationalAutoencoder(pl.LightningModule):
 
     def __init__(self,latent_size=512,in_f=3,img_dims=(32,32),device=torch.device('cpu')):
