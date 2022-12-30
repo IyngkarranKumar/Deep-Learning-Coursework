@@ -13,10 +13,10 @@ importlib.reload(utils)
 
 class CIFAR10Dataset(pl.LightningDataModule):
 
-    def __init__(self,batch_size=64,img_size=None):
+    def __init__(self,batch_size=64,img_size=None,train_path,test_path):
 
-        self.train_path='training/cifar10'
-        self.test_path='test/cifar10'
+        self.train_path=train_path
+        self.test_path=test_path
         self.batch_size=batch_size
         self.image_size=img_size
 

@@ -24,6 +24,71 @@ class Block(pl.LightningModule):
     def forward(self,x):
         return self.f(x)
 
+class ConvEncoder(nn.Module):
+
+    def __init__(self,latent_size=512,in_f=3,img_dims=(32,32),dims=(3,16,64,128,256,512)):
+        super().__init__()
+        
+        self.latent_size=latent_size
+        self.in_f=in_f
+        self.img_dims=img_dims
+        assert dims[0]==in_f and dims[-1]==latent_size 
+        self.dims=dims
+
+        #yet to implement check for 'valid dimensions'!
+        self.mu = nn.Linear(latent_size,latent_size)
+        self.sigma = nn.Linear(latent_size,latent_size)
+        self.encoder_layers=[]
+        for dfrom,dto in zip(list(self.dims[:-1]),list(self.dims[1:])):
+            self.encoder_layers.append(Block(dfrom,dto))
+            self.encoder_layers.append(nn.MaxPool2d(kernel_size=(2,2)))
+
+        
+        self.encode=nn.Sequential(*self.encoder_layers)
+        self.N = torch.distributions.Normal(0,1)
+        
+
+    def forward(self,x):
+        shape=x.shape
+        x=self.encode(x).squeeze()
+        mu=self.mu(x)
+        sigma=torch.exp(self.sigma(x))
+        z=mu+self.N.sample(mu.shape)*sigma
+        return mu,sigma,z
+
+class ConvDecoder(nn.Module):
+
+    def __init__(self,latent_size=512,in_f=3,img_dims=(32,32),dims=(512,256,128,64,16,3)):
+        super().__init__()
+        
+        self.latent_size=latent_size
+        self.in_f=in_f
+        self.img_dims=img_dims
+        assert dims[-1]==in_f and dims[0]==latent_size 
+        self.dims=dims
+
+        #yet to implement check for 'valid dimensions'!
+        self.decoder_layers=[]
+        for dto,dfrom in zip(list(self.dims[:-1]),list(self.dims[1:])):
+            self.decoder_layers.append(nn.Upsample(scale_factor=2))
+            self.decoder_layers.append(Block(in_f=dto,out_f=dfrom))
+
+        self.decode=nn.Sequential(*self.decoder_layers)
+
+    def forward(self,z):
+        z=z[:,:,None,None]
+        return self.decode(z)
+        
+class RegularVAELoss():
+
+    def __init__(self,kl_weight=1):
+        assert kl_weight>=0
+        self.kl_weight=kl_weight
+
+    def __call__(self,x,mu,sigma,z,x_hat):
+        loss=F.mse_loss(x,x_hat) + (self.kl_weight)*utils.KLDivLoss(mu,sigma)
+        return loss
+
 
 class Autoencoder(pl.LightningModule):
     
@@ -101,24 +166,21 @@ class Autoencoder(pl.LightningModule):
 
 class AbstractVariationalAutoencoder(pl.LightningModule):
 
-    def __init__(self,encoder,decoder,loss_func):
+    def __init__(self,encoder,decoder,loss_func,latent_size):
+        super().__init__()
+
         self.encoder=encoder
         self.decoder=decoder
-
-        self.N=torch.distributions.Normal(0,1)
+        self.loss_func=loss_func
+        self.latent_size=latent_size
     
     def encode(self,x):
-        mu,log_var=self.encoder(x)
-        sigma=torch.exp(log_var)
-        z=mu+(sigma*self.N.sample(mu.shape))
+        mu,sigma,z=self.encoder(x)
         return mu,sigma,z
 
     def decode(self,z):
         x_hat=self.decoder(z)
         return x_hat
-
-    def loss(self,x,mu,sigma,z,x_hat):
-        return self.loss_func(x,mu,sigma,z,x_hat)
 
     def forward(self,x):
         mu,sigma,z=self.encode(x)
@@ -129,30 +191,44 @@ class AbstractVariationalAutoencoder(pl.LightningModule):
         x,y=batch
         mu,sigma,z=self.encoder(x)
         x_hat=self.decoder(z)
-        Loss=self.loss(x,x_hat,z,mu,sigma)
-        return Loss
+        loss=self.loss_func(x,mu,sigma,z,x_hat)
+        self.log('train_loss',loss,logger=True,on_epoch=True)
+
+        return loss
+
+    def validation_step(self,batch,batch_idx):
+        x,y=batch
+        mu,sigma,z=self.encoder(x)
+        x_hat=self.decoder(z)
+        loss=self.loss_func(x,mu,sigma,z,x_hat)
+        self.log('val_loss',loss,logger=True,on_epoch=True)
+
+        return loss
+
 
     def configure_optimizers(self):
-        raise NotImplementedError
+        optimiser=torch.optim.Adam(self.parameters(),lr=0.001)
+        scheduler=torch.optim.lr_scheduler.StepLR(optimiser,step_size=100,gamma=0.5)
+        return {'optimizer':optimiser,'lr_scheduler':scheduler}
 
     def sample(self,n_samples):
-        raise NotImplementedError
 
+        prior=torch.distributions.Normal(0,1)
+        z = prior.sample((n_samples,self.latent_size))
 
-
-    
+        with torch.no_grad():
+            imgs=self.decoder(z)
+            
+        return imgs
 
 class VAE_one(AbstractVariationalAutoencoder):
     
-    def __init__(self,encoder=Encoder1,decoder=Decoder1,loss=Loss1):
-        super(self,VAE).__init__(encoder=Encoder1,decoder=Decoder1,loss=Loss1)
+    def __init__(self,encoder=ConvEncoder(),decoder=ConvDecoder(),loss_func=RegularVAELoss(),latent_size=512):
+        super().__init__(encoder=encoder,decoder=decoder,loss_func=loss_func,latent_size=latent_size)
 
 
 
-class VAE_two(AbstractVariationalAutoencoder):
 
-    def __init__(self,encoder=Encoder2,decoder=Decoder2,loss=Loss2):
-        super(self,VAE_two).__init__(encoder=Encoder2,decoder=Decoder2,loss=Loss2)
 
 
 
@@ -170,8 +246,6 @@ class VariationalAutoencoder(pl.LightningModule):
         self.encoder_layers=int(np.log2(img_dims[0])) #sets encoder ASSUMING each layer halves img dims (2n,2n)->(n,n)
         self.dims=list(reversed([latent_size/(2**i) for i in range(self.encoder_layers)]))
         self.dims = np.array([in_f]+self.dims,dtype=int)
-        self.encoder_layers=[]
-        self.decoder_layers=[]
         self.mu = nn.Linear(latent_size,latent_size)
         self.sigma = nn.Linear(latent_size,latent_size)
         self.encoder_layers=[]
