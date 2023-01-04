@@ -86,3 +86,40 @@ class STL10Dataset(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.stl10_val,batch_size=self.batch_size)
+
+
+class LSUNDataset(pl.LightningDataModule):
+    
+    def __init__(self,batch_size=64,img_size=None):
+        self.train_path='training/lsun' #path to download
+        self.test_path='test/lsun'
+        self.batch_size=batch_size
+        self.image_size=(32,32)
+
+    def prepare(self):
+        torchvision.datasets.LSUN(self.train_path,train=True,download=True)
+        torchvision.datasets.LSUN(self.test_path,train=False,download=True)
+
+    def setup(self):
+
+        #apply transforms and splits
+        transform_list=[torchvision.transforms.ToTensor()]
+        if self.image_size is not None:
+            transform_list.append(transforms.Resize(self.image_size))
+
+        transforms = torchvision.transforms.Compose(transform_list)
+        
+
+        lsun_full = torchvision.datasets.LSUN(self.train_path,train=True,transform=transforms)
+        self.lsun_train,self.lsun_val = random_split(lsun_full,[int(0.8*lsun_full.__len__()),int(0.2*lsun_full.__len__())])
+
+        self.lsun_test = torchvision.datasets.lsun(self.test_path,train=False,transform=transforms)
+
+    def train_dataloader(self):
+        return DataLoader(self.lsun_train,batch_size=self.batch_size)
+
+    def test_dataloader(self):
+        return DataLoader(self.lsun_test,batch_size=self.batch_size)
+
+    def val_dataloader(self):
+        return DataLoader(self.lsun_val,batch_size=self.batch_size)
