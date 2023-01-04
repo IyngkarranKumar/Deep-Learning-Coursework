@@ -81,13 +81,12 @@ class ConvDecoder(nn.Module):
         
 class RegularVAELoss():
 
-    def __init__(self,kl_weight=1):
-        assert kl_weight>=0
-        self.kl_weight=kl_weight
-
-    def __call__(self,x,mu,sigma,z,x_hat):
-        loss=F.mse_loss(x,x_hat) + (self.kl_weight)*utils.KLDivLoss(mu,sigma)
+    def __call__(self,x,mu,sigma,z,x_hat,kl_weight):
+        loss=F.mse_loss(x,x_hat) + (kl_weight)*utils.KLDivLoss(mu,sigma)
         return loss
+
+
+
 
 
 class Autoencoder(pl.LightningModule):
@@ -166,13 +165,17 @@ class Autoencoder(pl.LightningModule):
 
 class AbstractVariationalAutoencoder(pl.LightningModule):
 
-    def __init__(self,encoder,decoder,loss_func,latent_size):
+    def __init__(self,encoder,decoder,loss_func,latent_size,**kwargs):
         super().__init__()
 
         self.encoder=encoder
         self.decoder=decoder
         self.loss_func=loss_func
         self.latent_size=latent_size
+
+        self.warmup=kwargs.get('warmup')
+        self.warmup_max_epoch=100
+        self.warmup_schedule=np.linspace(0,1,self.warmup_max_epoch)
     
     def encode(self,x):
         mu,sigma,z=self.encoder(x)
@@ -191,7 +194,12 @@ class AbstractVariationalAutoencoder(pl.LightningModule):
         x,y=batch
         mu,sigma,z=self.encoder(x)
         x_hat=self.decoder(z)
-        loss=self.loss_func(x,mu,sigma,z,x_hat)
+        if self.warmup:
+            schedule_idx=self.current_epoch if self.current_epoch<self.warmup_max_epoch else -1
+            kl_weight=self.warmup_schedule[schedule_idx]
+        else:
+            kl_weight=1
+        loss=self.loss_func(x,mu,sigma,z,x_hat,kl_weight=kl_weight)
         self.log('train_loss',loss,logger=True,on_epoch=True)
 
         return loss
@@ -221,13 +229,17 @@ class AbstractVariationalAutoencoder(pl.LightningModule):
             
         return imgs
 
-class VAE_one(AbstractVariationalAutoencoder):
+
+
+
+class VAE(AbstractVariationalAutoencoder):
     
-    def __init__(self,encoder=ConvEncoder(),decoder=ConvDecoder(),loss_func=RegularVAELoss(),latent_size=512):
-        super().__init__(encoder=encoder,decoder=decoder,loss_func=loss_func,latent_size=latent_size)
+    def __init__(self,encoder=ConvEncoder(),decoder=ConvDecoder(),loss_func=RegularVAELoss(),latent_size=512,kwargs=None):
+        super().__init__(encoder=encoder,decoder=decoder,loss_func=loss_func,latent_size=latent_size,**kwargs)
 
 
 
+    
 
 
 

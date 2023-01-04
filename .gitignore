@@ -12,5 +12,8 @@ __pycache__
 #logs and checkpoints
 lightning_logs
 tb_logs
-models
+models_logs
+
+#miscel
+networks
 
