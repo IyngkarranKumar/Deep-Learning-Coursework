@@ -174,7 +174,8 @@ class AbstractVariationalAutoencoder(pl.LightningModule):
         self.latent_size=latent_size
 
         self.warmup=kwargs.get('warmup')
-        self.warmup_max_epoch=100
+        self.warmup_max_epoch=kwargs.get('warmup_max_epoch')
+        print(self.warmup)
         self.warmup_schedule=np.linspace(0,1,self.warmup_max_epoch)
     
     def encode(self,x):
@@ -234,7 +235,7 @@ class AbstractVariationalAutoencoder(pl.LightningModule):
 
 class VAE(AbstractVariationalAutoencoder):
     
-    def __init__(self,encoder=ConvEncoder(),decoder=ConvDecoder(),loss_func=RegularVAELoss(),latent_size=512,kwargs=None):
+    def __init__(self,encoder=ConvEncoder(),decoder=ConvDecoder(),loss_func=RegularVAELoss(),latent_size=512,kwargs={}):
         super().__init__(encoder=encoder,decoder=decoder,loss_func=loss_func,latent_size=latent_size,**kwargs)
 
 
