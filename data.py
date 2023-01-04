@@ -32,13 +32,13 @@ class CIFAR10Dataset(pl.LightningDataModule):
         if self.image_size is not None:
             transform_list.append(transforms.Resize(self.image_size))
 
-        transforms = torchvision.transforms.Compose(transform_list)
+        transform = torchvision.transforms.Compose(transform_list)
         
 
         cifar10_full = torchvision.datasets.CIFAR10(self.train_path,train=True,transform=transforms)
         self.cifar10_train,self.cifar10_val = random_split(cifar10_full,[int(0.8*cifar10_full.__len__()),int(0.2*cifar10_full.__len__())])
 
-        self.cifar10_test = torchvision.datasets.CIFAR10(self.test_path,train=False,transform=transforms)
+        self.cifar10_test = torchvision.datasets.CIFAR10(self.test_path,train=False,transform=transform)
 
     def train_dataloader(self,num=None):
         return DataLoader(self.cifar10_train,batch_size=self.batch_size)
@@ -70,13 +70,13 @@ class STL10Dataset(pl.LightningDataModule):
         if self.image_size is not None:
             transform_list.append(transforms.Resize(self.image_size))
 
-        transforms = torchvision.transforms.Compose(transform_list)
+        transform = torchvision.transforms.Compose(transform_list)
         
 
-        stl10_full = torchvision.datasets.STL10(self.train_path,train=True,transform=transforms)
+        stl10_full = torchvision.datasets.STL10(self.train_path,train=True,transform=transform)
         self.stl10_train,self.stl10_val = random_split(stl10_full,[int(0.8*stl10_full.__len__()),int(0.2*stl10_full.__len__())])
 
-        self.stl10_test = torchvision.datasets.STL10(self.test_path,train=False,transform=transforms)
+        self.stl10_test = torchvision.datasets.STL10(self.test_path,train=False,transform=transform)
 
     def train_dataloader(self):
         return DataLoader(self.stl10_train,batch_size=self.batch_size)
@@ -107,13 +107,13 @@ class LSUNDataset(pl.LightningDataModule):
         if self.image_size is not None:
             transform_list.append(transforms.Resize(self.image_size))
 
-        transforms = torchvision.transforms.Compose(transform_list)
+        transform = torchvision.transforms.Compose(transform_list)
         
 
-        lsun_full = torchvision.datasets.LSUN(self.train_path,train=True,transform=transforms)
+        lsun_full = torchvision.datasets.LSUN(self.train_path,train=True,transform=transform)
         self.lsun_train,self.lsun_val = random_split(lsun_full,[int(0.8*lsun_full.__len__()),int(0.2*lsun_full.__len__())])
 
-        self.lsun_test = torchvision.datasets.lsun(self.test_path,train=False,transform=transforms)
+        self.lsun_test = torchvision.datasets.lsun(self.test_path,train=False,transform=transform)
 
     def train_dataloader(self):
         return DataLoader(self.lsun_train,batch_size=self.batch_size)
