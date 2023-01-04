@@ -13,6 +13,7 @@ __pycache__
 lightning_logs
 tb_logs
 models_logs
+models
 
 #miscel
 networks
