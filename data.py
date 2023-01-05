@@ -7,6 +7,7 @@ import torchvision
 
 from torch.utils.data import Dataset,DataLoader,random_split
 from torchvision import transforms
+from torch.utils.data import ConcatDataset
 importlib.reload(utils)
 
 #datasets here split Train dataset 80:20 into train and val
@@ -53,15 +54,15 @@ class CIFAR10Dataset(pl.LightningDataModule):
 
 class STL10Dataset(pl.LightningDataModule):
     
-    def __init__(self,batch_size=64,img_size=None):
-        self.train_path='training/stl10' #path to download
-        self.test_path='test/stl10'
+    def __init__(self,train_path='training',test_path='test',batch_size=64,img_size=None):
+        self.train_path=train_path #path to download
+        self.test_path=test_path
         self.batch_size=batch_size
         self.image_size=(32,32)
 
     def prepare(self):
-        torchvision.datasets.STL10(self.train_path,train=True,download=True)
-        torchvision.datasets.STL10(self.test_path,train=False,download=True)
+        torchvision.datasets.STL10(self.train_path,split='train',download=True)
+        torchvision.datasets.STL10(self.test_path,split='test',download=True)
 
     def setup(self):
 
@@ -73,10 +74,10 @@ class STL10Dataset(pl.LightningDataModule):
         img_transform = torchvision.transforms.Compose(transform_list)
         
 
-        stl10_full = torchvision.datasets.STL10(self.train_path,train=True,transform=img_transform)
+        stl10_full = torchvision.datasets.STL10(self.train_path,split='train',transform=img_transform)
         self.stl10_train,self.stl10_val = random_split(stl10_full,[int(0.8*stl10_full.__len__()),int(0.2*stl10_full.__len__())])
 
-        self.stl10_test = torchvision.datasets.STL10(self.test_path,train=False,transform=img_transform)
+        self.stl10_test = torchvision.datasets.STL10(self.test_path,split='test',transform=img_transform)
 
     def train_dataloader(self):
         return DataLoader(self.stl10_train,batch_size=self.batch_size)
@@ -90,15 +91,17 @@ class STL10Dataset(pl.LightningDataModule):
 
 class LSUNDataset(pl.LightningDataModule):
     
-    def __init__(self,batch_size=64,img_size=None):
-        self.train_path='training/lsun' #path to download
-        self.test_path='test/lsun'
+    def __init__(self,train_path='training/lsun',test_path='test/lsun',val_path='val/lsun',batch_size=64,img_size=None):
+        self.train_path=train_path #path to download
+        self.test_path=test_path
+        self.val_path=val_path
         self.batch_size=batch_size
         self.image_size=(32,32)
 
     def prepare(self):
-        torchvision.datasets.LSUN(self.train_path,train=True,download=True)
-        torchvision.datasets.LSUN(self.test_path,train=False,download=True)
+        torchvision.datasets.LSUN(self.train_path,classes='train',download=True)
+        torchvision.datasets.LSUN(self.val_path,classes='val',download=True)
+        torchvision.datasets.LSUN(self.test_path,classes='test',download=True)
 
     def setup(self):
 
@@ -108,12 +111,10 @@ class LSUNDataset(pl.LightningDataModule):
             transform_list.append(transforms.Resize(self.image_size))
 
         img_transform = torchvision.transforms.Compose(transform_list)
-        
 
-        lsun_full = torchvision.datasets.LSUN(self.train_path,train=True,transform=img_transform)
-        self.lsun_train,self.lsun_val = random_split(lsun_full,[int(0.8*lsun_full.__len__()),int(0.2*lsun_full.__len__())])
-
-        self.lsun_test = torchvision.datasets.lsun(self.test_path,train=False,transform=img_transform)
+        self.lsun_train=torchvision.datasets.LSUN(self.train_path,classes='train',transform=img_transform)
+        self.lsun_val=torchvision.datasets.LSUN(self.val_path,classes='val',transform=img_transform)
+        self.lsun_test = torchvision.datasets.lsun(self.test_path,classes='test',transform=img_transform)
 
     def train_dataloader(self):
         return DataLoader(self.lsun_train,batch_size=self.batch_size)
@@ -123,3 +124,7 @@ class LSUNDataset(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.lsun_val,batch_size=self.batch_size)
+
+
+
+

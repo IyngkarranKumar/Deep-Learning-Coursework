@@ -56,7 +56,8 @@ def num_nans_infs(tens):
   return
 
 def imshow(tens):
-  plt.imshow(tens.permute(1,2,0))
+  tens=tens.permute(1,2,0)
+  plt.imshow(tens.detach().numpy())
   ax=plt.gca()
   return ax
 

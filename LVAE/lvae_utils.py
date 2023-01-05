@@ -3,17 +3,29 @@ import torch
 
 class LVAE():
     
-    def __init__(self):
+    def __init__(self,n_layers):
         
         self.N = torch.distributions.Normal(0,1)
 
+
+    def bottom_up_pass(X):
+        pass
+
+    def top_down_pass(X):
+        pass
+
+
+
     def forward(self,x):
-        
-        #bottom up pass - find parameters for inference model
-        for layer in layers:
-            mu_i,sigma_i=mu_i(x),sigma_i(x)
-            z=mu_i+sigma_i*self.N.sample()
 
-        z=z_top #top level latent
+        inf_mus,inf_sigmas,zs=bottom_up_pass(X)
+        inf_mus,inf_sigmas,gen_mus,gen_sigmas,x_hat=top_down_pass(X)
+        return inf_mus,inf_sigmas,gen_mus,gen_sigmas,z,x_hat
 
-        #top down pass - find parameters for generator model and update parameters for inference models
+    def training_step(self,batch,batch_idx):
+
+        X,y=batch
+        inf_mus,inf_sigmas,gen_mus,gen_sigmas,z,x_hat=self.forward(X)
+        loss=MSE(X,x_hat)+KL_divergence(inf_mus,inf_sigmas,)
+
+

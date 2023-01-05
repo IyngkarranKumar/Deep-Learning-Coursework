@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import pytorch_lightning as pl
 import importlib
-
+import config
 
 from torch import nn as nn
 from torch.nn import functional as F
@@ -26,22 +26,30 @@ class Block(pl.LightningModule):
 
 class ConvEncoder(nn.Module):
 
-    def __init__(self,latent_size=512,in_f=3,img_dims=(32,32),dims=(3,16,64,128,256,512)):
+    def __init__(self,latent_size=512,in_f=3,img_dims=(32,32)):
         super().__init__()
         
         self.latent_size=latent_size
         self.in_f=in_f
         self.img_dims=img_dims
-        assert dims[0]==in_f and dims[-1]==latent_size 
-        self.dims=dims
 
-        #yet to implement check for 'valid dimensions'!
+        #padding and sims
+        self.log2_pad_dims=np.ceil(np.log2(img_dims[0])).astype('int')
+        self.pad_dims=2**self.log2_pad_dims
+        p1=((self.pad_dims-img_dims[0])/2).astype('int')
+        self.pad_tens=(p1,p1,p1,p1) #pad last/second last axis above and below with p1 rows
+        dims = [3]+list(2**np.arange(3,3+self.log2_pad_dims))
+        self.dims=dims[:self.log2_pad_dims]+[self.latent_size]
+
+
+
         self.mu = nn.Linear(latent_size,latent_size)
         self.sigma = nn.Linear(latent_size,latent_size)
         self.encoder_layers=[]
         for dfrom,dto in zip(list(self.dims[:-1]),list(self.dims[1:])):
             self.encoder_layers.append(Block(dfrom,dto))
             self.encoder_layers.append(nn.MaxPool2d(kernel_size=(2,2)))
+            
 
         
         self.encode=nn.Sequential(*self.encoder_layers)
@@ -49,6 +57,9 @@ class ConvEncoder(nn.Module):
         
 
     def forward(self,x):
+
+        #pad
+        x=F.pad(input=x,pad=self.pad_tens,value=None)
         shape=x.shape
         x=self.encode(x).squeeze()
         mu=self.mu(x)
@@ -58,14 +69,19 @@ class ConvEncoder(nn.Module):
 
 class ConvDecoder(nn.Module):
 
-    def __init__(self,latent_size=512,in_f=3,img_dims=(32,32),dims=(512,256,128,64,16,3)):
+    def __init__(self,latent_size=512,in_f=3,img_dims=(32,32)):
         super().__init__()
         
         self.latent_size=latent_size
         self.in_f=in_f
         self.img_dims=img_dims
-        assert dims[-1]==in_f and dims[0]==latent_size 
-        self.dims=dims
+
+        self.log2_pad_dims=np.ceil(np.log2(img_dims[0])).astype('int')
+        self.pad_dims=2**self.log2_pad_dims
+        p1=((self.pad_dims-img_dims[0])/2).astype('int')
+        self.pad_tens=(p1,p1,p1,p1) #pad last/second last axis above and below with p1 rows
+        dims = [3]+list(2**np.arange(3,3+self.log2_pad_dims))
+        self.dims=list(reversed(dims[:self.log2_pad_dims]+[self.latent_size])) #reversed as decoding
 
         #yet to implement check for 'valid dimensions'!
         self.decoder_layers=[]
@@ -77,91 +93,17 @@ class ConvDecoder(nn.Module):
 
     def forward(self,z):
         z=z[:,:,None,None]
-        return self.decode(z)
+        x_hat=self.decode(z)
+        pd=tuple(-1*elem for elem in self.pad_tens) #to get rid of padding
+        x_hat=F.pad(x_hat,pad=pd)
+        return x_hat
         
 class RegularVAELoss():
 
-    def __call__(self,x,mu,sigma,z,x_hat,kl_weight):
+    def __call__(self,x,mu,sigma,z,x_hat,kl_weight=1):
         loss=F.mse_loss(x,x_hat) + (kl_weight)*utils.KLDivLoss(mu,sigma)
         return loss
 
-
-
-
-
-class Autoencoder(pl.LightningModule):
-    
-    def __init__(self,n_channels,latent_size, f=16,device=torch.device('cpu')):
-        super().__init__()
-
-        self.latent_size=latent_size
-        self.n_channels=n_channels
-        self.f=16
-        self.dev=device #reqd for tensors instantiated by model
-
-        self.save_hyperparameters() #for checkpointing
-
-        self.encode = nn.Sequential(
-            Block(n_channels, f),
-            nn.MaxPool2d(kernel_size=(2,2)), # output = 16x16 (if cifar10, 48x48 if stl10)
-            Block(f  ,f*2),
-            nn.MaxPool2d(kernel_size=(2,2)), # output = 8x8
-            Block(f*2,f*4),
-            nn.MaxPool2d(kernel_size=(2,2)), # output = 4x4
-            Block(f*4,f*4),
-            nn.MaxPool2d(kernel_size=(2,2)), # output = 2x2
-            Block(f*4,f*4),
-            nn.MaxPool2d(kernel_size=(2,2)), # output = 1x1
-            Block(f*4,latent_size),
-        )
-
-        self.decode = nn.Sequential(
-            nn.Upsample(scale_factor=2), # output = 2x2
-            Block(latent_size,f*4),
-            nn.Upsample(scale_factor=2), # output = 4x4
-            Block(f*4,f*4),
-            nn.Upsample(scale_factor=2), # output = 8x8
-            Block(f*4,f*2),
-            nn.Upsample(scale_factor=2), # output = 16x16
-            Block(f*2,f  ),
-            nn.Upsample(scale_factor=2), # output = 32x32
-            nn.Conv2d(f,n_channels, 3,1,1),
-            nn.Sigmoid()
-        )
-
-    def forward(self,x):
-        shape = x.shape
-        z = self.encode(x)
-        x_hat = self.decode(z)
-        return z,x_hat
-
-    def training_step(self,batch,batch_idx):
-        x,y=batch
-        z,x_hat=self(x)
-        loss = torch.nn.functional.mse_loss(x,x_hat)
-        self.log('train_loss',loss,logger=True,on_step=True,on_epoch=True)
-        return loss
-
-
-    def configure_optimizers(self):
-        optimiser=torch.optim.Adam(self.parameters(),lr=0.01)
-        scheduler=torch.optim.lr_scheduler.StepLR(optimiser,step_size=100,gamma=0.5)
-        return {'optimizer':optimiser,'lr_scheduler':scheduler}
-
-    def on_train_batch_end(self, outputs,batch,batch_idx):
-        return batch
-
-    def sample(self,n_samples=5,method='random'):
-
-        if method=='random':
-            z=torch.rand(n_samples,self.latent_size)
-            z=z.to(self.dev)
-            z=z[:,:,None,None]
-
-        with torch.no_grad():
-            imgs=self.decode(z)
-            
-        return imgs
 
 class AbstractVariationalAutoencoder(pl.LightningModule):
 
@@ -191,25 +133,44 @@ class AbstractVariationalAutoencoder(pl.LightningModule):
         x_hat=self.decode(z)
         return x_hat
 
-    def training_step(self,batch,batch_idx):
-        x,y=batch
-        mu,sigma,z=self.encoder(x)
-        x_hat=self.decoder(z)
-        if self.warmup:
-            schedule_idx=self.current_epoch if self.current_epoch<self.warmup_max_epoch else -1
-            kl_weight=self.warmup_schedule[schedule_idx]
-        else:
-            kl_weight=1
-        loss=self.loss_func(x,mu,sigma,z,x_hat,kl_weight=kl_weight)
+    def training_step(self,batches,batch_idx):
+
+        '''
+        Accumulates loss over different training datasets (if multiple)
+        '''
+
+        loss=0
+        for batch in batches.values():
+            x,y=batch
+            mu,sigma,z=self.encoder(x)
+            x_hat=self.decoder(z)
+            if self.warmup:
+                schedule_idx=self.current_epoch if self.current_epoch<self.warmup_max_epoch else -1
+                kl_weight=self.warmup_schedule[schedule_idx]
+            else:
+                kl_weight=1
+            l=self.loss_func(x,mu,sigma,z,x_hat,kl_weight=kl_weight)
+            loss+=l
+
         self.log('train_loss',loss,logger=True,on_epoch=True)
 
         return loss
 
-    def validation_step(self,batch,batch_idx):
-        x,y=batch
-        mu,sigma,z=self.encoder(x)
-        x_hat=self.decoder(z)
-        loss=self.loss_func(x,mu,sigma,z,x_hat)
+    def validation_step(self,batches,batch_idx):
+        loss=0
+        for batch in batches.values():
+            x,y=batch
+            mu,sigma,z=self.encoder(x)
+            x_hat=self.decoder(z)
+            if self.warmup:
+                schedule_idx=self.current_epoch if self.current_epoch<self.warmup_max_epoch else -1
+                kl_weight=self.warmup_schedule[schedule_idx]
+            else:
+                kl_weight=1
+
+            l=self.loss_func(x,mu,sigma,z,x_hat,kl_weight=kl_weight)
+            loss+=l
+
         self.log('val_loss',loss,logger=True,on_epoch=True)
 
         return loss
