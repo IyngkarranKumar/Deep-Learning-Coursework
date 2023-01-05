@@ -60,7 +60,7 @@ class STL10Dataset(pl.LightningDataModule):
         self.batch_size=batch_size
         self.image_size=img_size
 
-    def prepare(self):
+    def prepare_data(self):
         torchvision.datasets.STL10(self.train_path,split='train',download=True)
         torchvision.datasets.STL10(self.test_path,split='test',download=True)
 
@@ -98,7 +98,7 @@ class LSUNDataset(pl.LightningDataModule):
         self.batch_size=batch_size
         self.image_size=img_size
 
-    def prepare(self):
+    def prepare_data(self):
         torchvision.datasets.LSUN(self.train_path,classes='train',download=True)
         torchvision.datasets.LSUN(self.val_path,classes='val',download=True)
         torchvision.datasets.LSUN(self.test_path,classes='test',download=True)
