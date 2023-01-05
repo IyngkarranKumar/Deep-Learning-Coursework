@@ -14,7 +14,7 @@ importlib.reload(utils)
 
 class CIFAR10Dataset(pl.LightningDataModule):
 
-    def __init__(self,train_path='training',test_path='test',batch_size=64,img_size=None):
+    def __init__(self,train_path='data/cifar10/train',test_path='data/cifar10/test',batch_size=64,img_size=None):
 
         self.train_path=train_path
         self.test_path=test_path
@@ -54,11 +54,11 @@ class CIFAR10Dataset(pl.LightningDataModule):
 
 class STL10Dataset(pl.LightningDataModule):
     
-    def __init__(self,train_path='training',test_path='test',batch_size=64,img_size=None):
+    def __init__(self,train_path='data/stl10/train',test_path='data/stl10/test',batch_size=64,img_size=None):
         self.train_path=train_path #path to download
         self.test_path=test_path
         self.batch_size=batch_size
-        self.image_size=(32,32)
+        self.image_size=img_size
 
     def prepare(self):
         torchvision.datasets.STL10(self.train_path,split='train',download=True)
@@ -91,12 +91,12 @@ class STL10Dataset(pl.LightningDataModule):
 
 class LSUNDataset(pl.LightningDataModule):
     
-    def __init__(self,train_path='training/lsun',test_path='test/lsun',val_path='val/lsun',batch_size=64,img_size=None):
+    def __init__(self,train_path='data/lsun/train',test_path='data/lsun/test',val_path='data/lsun/val',batch_size=64,img_size=None):
         self.train_path=train_path #path to download
         self.test_path=test_path
         self.val_path=val_path
         self.batch_size=batch_size
-        self.image_size=(32,32)
+        self.image_size=img_size
 
     def prepare(self):
         torchvision.datasets.LSUN(self.train_path,classes='train',download=True)
