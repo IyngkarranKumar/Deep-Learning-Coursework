@@ -1,7 +1,6 @@
 
 #datasets
-training
-test
+data
 
 #Jupypter Notebook
 .ipynb_checkpoints
